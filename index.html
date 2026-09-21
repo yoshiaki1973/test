@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ソルフェジオ周波数プレイヤー</title>
+<style>
+  :root {
+    --bg-top: #0b0f2b;
+    --bg-bottom: #1a0b2e;
+    --card-bg: rgba(255,255,255,0.06);
+    --card-border: rgba(255,255,255,0.12);
+    --text-main: #f0edff;
+    --text-sub: #b3aed6;
+    --accent: #9b7bff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: radial-gradient(ellipse at top, var(--bg-top), var(--bg-bottom));
+    color: var(--text-main);
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  }
+  .wrap {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 8px 0 4px;
+    letter-spacing: 0.04em;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text-sub);
+    font-size: 0.85rem;
+    margin-bottom: 28px;
+  }
+  .now-playing {
+    text-align: center;
+    min-height: 28px;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    color: var(--accent);
+    transition: opacity 0.3s;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    border-color: rgba(155,123,255,0.5);
+    transform: translateY(-2px);
+  }
+  .card.active {
+    border-color: var(--accent);
+    background: rgba(155,123,255,0.18);
+    box-shadow: 0 0 20px rgba(155,123,255,0.25);
+  }
+  .freq {
+    font-size: 1.3rem;
+    font-weight: 700;
+    min-width: 78px;
+    color: var(--text-main);
+  }
+  .card.active .freq { color: var(--accent); }
+  .desc {
+    font-size: 0.78rem;
+    color: var(--text-sub);
+    line-height: 1.4;
+  }
+  .pulse {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0;
+  }
+  .card.active .pulse {
+    opacity: 1;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(0.7); opacity: 0.5; }
+    50% { transform: scale(1.15); opacity: 1; }
+  }
+  .controls {
+    margin-top: 30px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .row label {
+    font-size: 0.8rem;
+    color: var(--text-sub);
+    width: 90px;
+    flex-shrink: 0;
+  }
+  input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+  select {
+    flex: 1;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-main);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+  select option {
+    background: #1e1440;
+    color: #f5f3ff;
+  }
+  .value {
+    font-size: 0.78rem;
+    color: var(--text-sub);
+    width: 44px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .stop-btn {
+    margin-top: 4px;
+    align-self: center;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.25);
+    color: var(--text-main);
+    padding: 8px 22px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .stop-btn:hover {
+    border-color: var(--accent);
+    background: rgba(155,123,255,0.15);
+  }
+  .hint {
+    text-align: center;
+    color: var(--text-sub);
+    font-size: 0.72rem;
+    margin-top: 24px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ソルフェジオ周波数プレイヤー</h1>
+  <div class="subtitle">周波数をタップして再生・停止</div>
+  <div class="now-playing" id="nowPlaying"></div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="controls">
+    <div class="row">
+      <label for="waveSelect">波形</label>
+      <select id="waveSelect">
+        <option value="sine" selected>サイン波（純音）</option>
+        <option value="triangle">三角波</option>
+        <option value="sawtooth">のこぎり波</option>
+        <option value="square">矩形波</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="volSlider">音量</label>
+      <input type="range" id="volSlider" min="0" max="100" value="30">
+      <span class="value" id="volValue">30%</span>
+    </div>
+    <button class="stop-btn" id="stopAllBtn">すべて停止</button>
+  </div>
+
+  <div class="hint">
+    ※ 音量は控えめから始めてください。長時間の視聴時はご注意ください。<br>
+    複数の周波数を同時に鳴らすこともできます。
+  </div>
+</div>
+
+<script>
+const FREQUENCIES = [
+  { hz: 174, label: "苦痛の軽減や安定の周波数" },
+  { hz: 285, label: "多次元領域の知覚や、促進の周波数" },
+  { hz: 396, label: "罪・トラウマ・恐怖から解放の周波数" },
+  { hz: 417, label: "マイナスから変化を促す周波数" },
+  { hz: 528, label: "基本となる癒やしの周波数" },
+  { hz: 639, label: "人とのつながり、調和の周波数" },
+  { hz: 741, label: "表現力の向上、自由の周波数" },
+  { hz: 852, label: "目覚め、直感の周波数" },
+  { hz: 963, label: "高次元、宇宙意識とつながる活性の周波数" },
+];
+
+let audioCtx = null;
+const activeNodes = new Map(); // hz -> { osc, gain }
+const waveSelect = document.getElementById("waveSelect");
+const volSlider = document.getElementById("volSlider");
+const volValue = document.getElementById("volValue");
+const nowPlaying = document.getElementById("nowPlaying");
+const grid = document.getElementById("grid");
+
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+function currentVolume() {
+  return parseInt(volSlider.value, 10) / 100;
+}
+
+function startTone(hz) {
+  const ctx = ensureAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = waveSelect.value;
+  osc.frequency.setValueAtTime(hz, ctx.currentTime);
+
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(currentVolume(), ctx.currentTime + 0.4);
+
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+
+  activeNodes.set(hz, { osc, gain });
+  updateNowPlaying();
+}
+
+function stopTone(hz) {
+  const node = activeNodes.get(hz);
+  if (!node) return;
+  const ctx = ensureAudioCtx();
+  const { osc, gain } = node;
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+  osc.stop(ctx.currentTime + 0.35);
+  activeNodes.delete(hz);
+  updateNowPlaying();
+}
+
+function stopAll() {
+  [...activeNodes.keys()].forEach(stopTone);
+}
+
+function updateNowPlaying() {
+  document.querySelectorAll(".card").forEach((card) => {
+    const hz = Number(card.dataset.hz);
+    card.classList.toggle("active", activeNodes.has(hz));
+  });
+  const hzList = [...activeNodes.keys()].sort((a, b) => a - b);
+  nowPlaying.textContent = hzList.length
+    ? `再生中: ${hzList.map((h) => h + "Hz").join(" / ")}`
+    : "";
+}
+
+FREQUENCIES.forEach(({ hz, label }) => {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.dataset.hz = hz;
+  card.innerHTML = `
+    <div class="freq">${hz}Hz</div>
+    <div class="desc">${label}</div>
+    <div class="pulse"></div>
+  `;
+  card.addEventListener("click", () => {
+    if (activeNodes.has(hz)) {
+      stopTone(hz);
+    } else {
+      startTone(hz);
+    }
+  });
+  grid.appendChild(card);
+});
+
+volSlider.addEventListener("input", () => {
+  volValue.textContent = `${volSlider.value}%`;
+  const v = currentVolume();
+  const ctx = ensureAudioCtx();
+  activeNodes.forEach(({ gain }) => {
+    gain.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
+  });
+});
+
+waveSelect.addEventListener("change", () => {
+  activeNodes.forEach(({ osc }) => {
+    osc.type = waveSelect.value;
+  });
+});
+
+document.getElementById("stopAllBtn").addEventListener("click", stopAll);
+
+window.addEventListener("beforeunload", stopAll);
+</script>
+</body>
+</html>
